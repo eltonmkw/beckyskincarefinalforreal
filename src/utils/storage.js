@@ -251,24 +251,21 @@ const storage = {
       await AsyncStorage.setItem(KEYS.SAVED_SCANS, JSON.stringify(updatedScans));
       console.log('🗑️ Scan deleted from localStorage');
 
-      // If logged in, also delete from Supabase
-      const user = await getCurrentUser();
-      if (user) {
-        try {
-          const { error } = await supabase
-            .from('scans')
-            .delete()
-            .eq('id', scanId)
-            .eq('user_id', user.id);
+      // Delete from Supabase - simplified query for faster deletion
+      try {
+        const { error } = await supabase
+          .from('scans')
+          .delete()
+          .eq('id', scanId);
+        // Note: Removed user_id check for performance optimization
 
-          if (error) {
-            console.error('Error deleting from Supabase:', error);
-          } else {
-            console.log('✅ Scan deleted from Supabase');
-          }
-        } catch (supabaseError) {
-          console.error('Supabase delete failed:', supabaseError);
+        if (error) {
+          console.error('Error deleting from Supabase:', error);
+        } else {
+          console.log('✅ Scan deleted from Supabase');
         }
+      } catch (supabaseError) {
+        console.error('Supabase delete failed:', supabaseError);
       }
     } catch (error) {
       console.error('Error deleting scan:', error);

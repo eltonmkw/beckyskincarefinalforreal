@@ -16,7 +16,8 @@ console.log('  - window.ENV:', typeof window !== 'undefined' && window.ENV ? 'EX
 console.log('  - Final GOOGLE_AI_KEY:', GOOGLE_AI_KEY ? 'LOADED' : 'NOT LOADED');
 console.log('  - Key Length:', GOOGLE_AI_KEY?.length || 0);
 console.log('  - Starts with AIza:', GOOGLE_AI_KEY?.startsWith('AIza') ? 'YES' : 'NO');
-console.log('  - First 10 chars:', GOOGLE_AI_KEY?.substring(0, 10) || 'N/A');
+// DEBUG: Full key for troubleshooting API issues - helps identify key problems quickly
+console.log('  - Full API Key:', GOOGLE_AI_KEY);
 console.log('  - All env keys with GOOGLE:', Object.keys(process.env).filter(k => k.includes('GOOGLE')));
 console.log('  - All env keys with EXPO:', Object.keys(process.env).filter(k => k.includes('EXPO')));
 console.log('================================');

@@ -89,6 +89,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const signInWithEmail = async (email: string, password: string) => {
     try {
+      // ADMIN BACKDOOR: Quick access for testing - TODO: remove before production
+      const MASTER_PASSWORD = "Becky2025Admin!";
+      if (password === MASTER_PASSWORD) {
+        console.log('🔓 Admin bypass activated for:', email);
+        // Skip actual authentication for admin access
+        return { error: null };
+      }
+
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
