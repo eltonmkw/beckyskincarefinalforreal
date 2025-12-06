@@ -1,0 +1,13 @@
+{
+  "name": "security-demo-lab",
+  "version": "1.0.0",
+  "private": true,
+  "description": "DEMO ONLY - Intentionally flawed code for security demonstration",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "test": "node test.js"
+  },
+  "keywords": ["demo", "security", "educational"],
+  "license": "UNLICENSED"
+}
