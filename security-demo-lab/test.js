@@ -36,6 +36,11 @@ test('config.database.type should be in-memory', () => {
   assert(config.database.type === 'in-memory', 'should use in-memory database');
 });
 
+test('config should have apiKey defined', () => {
+  assert(config.apiKey !== undefined, 'apiKey should be defined');
+  assert(config.apiKey.length > 0, 'apiKey should not be empty');
+});
+
 test('users.getUser should return demo user', () => {
   const user = users.getUser('demo-user-1');
   assert(user !== null, 'demo user should exist');
@@ -46,6 +51,12 @@ test('users.getAllUsers should return array', () => {
   const allUsers = users.getAllUsers();
   assert(Array.isArray(allUsers), 'should return array');
   assert(allUsers.length >= 2, 'should have at least 2 demo users');
+});
+
+test('admin user should have admin role', () => {
+  const admin = users.getUser('demo-admin-1');
+  assert(admin !== null, 'admin should exist');
+  assert(admin.role === 'admin', 'admin should have admin role');
 });
 
 // Summary
