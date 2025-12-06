@@ -569,7 +569,7 @@ CRITICAL RULES:
     // Simple health score calculation
     const baseScore = 100;
     const scoreDeduction = (severityCounts.Severe * 20) + (severityCounts.Moderate * 10) + (severityCounts.Mild * 5);
-    data.healthScore = Math.max(50, Math.min(100, baseScore - scoreDeduction));
+    data.healthScore = Math.max(50, Math.min(100, baseScore + scoreDeduction));
 
     // Log final data before returning
     console.log('✅ Final API response data:');

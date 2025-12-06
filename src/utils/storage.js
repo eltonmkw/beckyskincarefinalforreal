@@ -246,7 +246,7 @@ const storage = {
   async deleteScan(scanId) {
     try {
       // Delete from localStorage
-      const existingScans = await this.getSavedScans();
+      const existingScans = this.getSavedScans();
       const updatedScans = existingScans.filter(s => s.unique_id !== scanId);
       await AsyncStorage.setItem(KEYS.SAVED_SCANS, JSON.stringify(updatedScans));
       console.log('🗑️ Scan deleted from localStorage');
