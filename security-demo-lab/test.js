@@ -36,9 +36,20 @@ test('config.database.type should be in-memory', () => {
   assert(config.database.type === 'in-memory', 'should use in-memory database');
 });
 
-test('config should have apiKey defined', () => {
-  assert(config.apiKey !== undefined, 'apiKey should be defined');
-  assert(config.apiKey.length > 0, 'apiKey should not be empty');
+test('config should validate API key via function', () => {
+  // [FIXED] Secrets are accessed via validation functions
+  assert(typeof config.validateApiKey === 'function', 'validateApiKey should be a function');
+  assert(config.validateApiKey('wrong-key') === false, 'should reject wrong key');
+});
+
+test('config should not expose secrets directly', () => {
+  // [FIXED] Secrets are not exposed as properties
+  assert(config.apiKey === undefined, 'apiKey should not be directly accessible');
+  assert(config.adminPassword === undefined, 'adminPassword should not be directly accessible');
+});
+
+test('config.logging.includeSecrets should be false', () => {
+  assert(config.logging.includeSecrets === false, 'should not include secrets in logs');
 });
 
 test('users.getUser should return demo user', () => {

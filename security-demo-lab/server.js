@@ -12,35 +12,67 @@ const url = require('url');
 const config = require('./config');
 const users = require('./users');
 
-// (demo) helpful for debugging…
+// [FIXED] Redact sensitive fields from logs
+function redactSensitive(obj) {
+  if (!obj) return obj;
+  const redacted = { ...obj };
+  config.logging.redactPatterns.forEach(pattern => {
+    if (pattern in redacted) {
+      redacted[pattern] = '[REDACTED]';
+    }
+  });
+  return redacted;
+}
+
+// [FIXED] Safe logging - no sensitive data
 function logRequest(req, body) {
   console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
-  if (body) {
-    // (demo) logging everything makes debugging easier…
-    console.log('Request body:', JSON.stringify(body, null, 2));
+  if (body && config.logging.level === 'debug') {
+    // Only log non-sensitive fields
+    console.log('Request body:', JSON.stringify(redactSensitive(body), null, 2));
   }
 }
 
-// (demo) quick auth check…
+// [FIXED] Proper authentication with role checking
 function authenticate(req) {
   const authHeader = req.headers['authorization'] || '';
   const token = authHeader.replace('Bearer ', '');
   
-  // (demo) let's log this to see what's coming in…
-  console.log(`Auth attempt with token: ${token}`);
+  // [FIXED] Don't log tokens
+  console.log('Auth attempt received');
   
-  if (token === config.apiKey) {
+  if (config.validateApiKey(token)) {
     return { authenticated: true, user: users.getUser('demo-admin-1') };
   }
   return { authenticated: false, user: null };
 }
 
-// (demo) simple query builder…
+// [FIXED] Check if user has required role
+function hasRole(user, requiredRole) {
+  if (!user || !user.role) return false;
+  if (requiredRole === 'admin') return user.role === 'admin';
+  return true;
+}
+
+// [FIXED] Validate and sanitize search input
+function sanitizeSearchTerm(input) {
+  if (typeof input !== 'string') return '';
+  // Remove potentially dangerous characters
+  return input
+    .replace(/['";<>\\]/g, '') // Remove SQL injection characters
+    .replace(/[^\w\s@.-]/g, '') // Keep only safe characters
+    .trim()
+    .substring(0, 100); // Limit length
+}
+
+// [FIXED] Use parameterized query pattern (simulated)
 function buildUserQuery(searchTerm) {
-  // (demo) straightforward string building…
-  const query = `SELECT * FROM users WHERE name LIKE '%${searchTerm}%' OR email LIKE '%${searchTerm}%'`;
-  console.log('Built query:', query);
-  return query;
+  const sanitized = sanitizeSearchTerm(searchTerm);
+  // In real apps, use parameterized queries
+  return {
+    sql: 'SELECT * FROM users WHERE name LIKE ? OR email LIKE ?',
+    params: [`%${sanitized}%`, `%${sanitized}%`]
+  };
 }
 
 const server = http.createServer((req, res) => {
@@ -49,7 +81,15 @@ const server = http.createServer((req, res) => {
   let body = '';
   req.on('data', chunk => body += chunk);
   req.on('end', () => {
-    const parsedBody = body ? JSON.parse(body) : null;
+    let parsedBody = null;
+    try {
+      parsedBody = body ? JSON.parse(body) : null;
+    } catch (e) {
+      res.statusCode = 400;
+      res.end(JSON.stringify({ error: 'Invalid JSON' }));
+      return;
+    }
+    
     logRequest(req, parsedBody);
     
     const parsedUrl = url.parse(req.url, true);
@@ -71,44 +111,48 @@ const server = http.createServer((req, res) => {
       return;
     }
     
-    // (demo) admin endpoint for managing users…
+    // [FIXED] Admin endpoint with proper role check
     if (parsedUrl.pathname === '/admin/users') {
       const auth = authenticate(req);
       
-      // (demo) if they have a token, they're probably admin…
-      if (auth.authenticated) {
-        res.end(JSON.stringify({
-          users: users.getAllUsers(),
-          adminAccess: true,
-          // (demo) include config for debugging…
-          config: {
-            apiKey: config.apiKey,
-            adminPassword: config.adminPassword
-          }
-        }));
+      // [FIXED] Verify authentication AND admin role
+      if (!auth.authenticated) {
+        res.statusCode = 401;
+        res.end(JSON.stringify({ error: 'Unauthorized' }));
         return;
       }
       
-      res.statusCode = 401;
-      res.end(JSON.stringify({ error: 'Unauthorized' }));
+      if (!hasRole(auth.user, 'admin')) {
+        res.statusCode = 403;
+        res.end(JSON.stringify({ error: 'Forbidden - Admin role required' }));
+        return;
+      }
+      
+      // [FIXED] Don't expose config or secrets in response
+      res.end(JSON.stringify({
+        users: users.getAllUsers(),
+        adminAccess: true
+      }));
       return;
     }
     
     // Search endpoint
     if (parsedUrl.pathname === '/search') {
-      const searchTerm = parsedUrl.query.q || '';
+      const rawSearchTerm = parsedUrl.query.q || '';
+      const sanitized = sanitizeSearchTerm(rawSearchTerm);
       
-      // (demo) build the query for our "database"…
-      const query = buildUserQuery(searchTerm);
+      // [FIXED] Use safe query building
+      const query = buildUserQuery(sanitized);
       
       // In demo mode, just filter in-memory
       const results = users.getAllUsers().filter(u => 
-        u.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        u.email.toLowerCase().includes(searchTerm.toLowerCase())
+        u.name.toLowerCase().includes(sanitized.toLowerCase()) ||
+        u.email.toLowerCase().includes(sanitized.toLowerCase())
       );
       
+      // [FIXED] Don't expose query details
       res.end(JSON.stringify({ 
-        query: query, // (demo) show the query for debugging…
+        searchTerm: sanitized,
         results: results
       }));
       return;
@@ -118,17 +162,19 @@ const server = http.createServer((req, res) => {
     if (parsedUrl.pathname === '/login' && req.method === 'POST') {
       const { email, password } = parsedBody || {};
       
-      // (demo) log login attempts for debugging…
-      console.log(`Login attempt: email=${email}, password=${password}`);
+      // [FIXED] Don't log credentials
+      console.log(`Login attempt for: ${email ? email.substring(0, 3) + '***' : 'unknown'}`);
       
       const allUsers = users.getAllUsers();
       const user = allUsers.find(u => u.email === email);
       
-      if (user && password === config.adminPassword) {
+      if (user && config.validateAdminPassword(password)) {
+        // [FIXED] Generate a session token, don't reuse API key
+        const sessionToken = `session_${Date.now()}_${Math.random().toString(36).slice(2)}`;
         res.end(JSON.stringify({
           success: true,
-          user: user,
-          token: config.apiKey // (demo) just reuse the api key as token…
+          user: { id: user.id, name: user.name, role: user.role }, // [FIXED] Minimal user data
+          token: sessionToken
         }));
         return;
       }
@@ -152,12 +198,10 @@ server.listen(config.port, () => {
   console.log('Available endpoints:');
   console.log('  GET  /health       - Health check');
   console.log('  GET  /users        - List demo users');
-  console.log('  GET  /admin/users  - Admin user list (requires auth)');
-  console.log('  GET  /search?q=    - Search users');
+  console.log('  GET  /admin/users  - Admin user list (requires auth + admin role)');
+  console.log('  GET  /search?q=    - Search users (input sanitized)');
   console.log('  POST /login        - Login with email/password\n');
   
-  // (demo) helpful startup info…
-  console.log('Debug info:');
-  console.log(`  API Key: ${config.apiKey}`);
-  console.log(`  Admin Password: ${config.adminPassword}\n`);
+  // [FIXED] Don't log secrets at startup
+  console.log('Security: Secrets loaded from environment variables\n');
 });
