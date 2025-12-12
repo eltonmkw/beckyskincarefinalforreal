@@ -1,25 +1,20 @@
+import {
+  GOOGLE_AI_API_URL,
+  GOOGLE_AI_PRODUCT_MODEL,
+  GOOGLE_AI_SKIN_MODEL,
+  GOOGLE_AI_TIMEOUT_MS,
+  GOOGLE_AI_MAX_OUTPUT_TOKENS,
+  logGoogleApiStatus,
+} from '../config/googleAI';
+
 // Get API key from environment - try multiple sources for compatibility
 const GOOGLE_AI_KEY =
   process.env.EXPO_PUBLIC_GOOGLE_AI_KEY ||
   (typeof window !== 'undefined' && window._env_?.EXPO_PUBLIC_GOOGLE_AI_KEY) ||
   (typeof window !== 'undefined' && window.ENV?.EXPO_PUBLIC_GOOGLE_AI_KEY);
 
-const GOOGLE_AI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models';
-const SKIN_ANALYSIS_MODEL = 'gemini-2.5-flash';
-const PRODUCT_ANALYSIS_MODEL = 'gemini-2.5-flash';
-
-// Enhanced logging for debugging environment issues (especially in Bolt)
-console.log('🔑 ===== GOOGLE AI KEY DEBUG =====');
-console.log('  - process.env.EXPO_PUBLIC_GOOGLE_AI_KEY:', process.env.EXPO_PUBLIC_GOOGLE_AI_KEY ? 'EXISTS' : 'MISSING');
-console.log('  - window._env_:', typeof window !== 'undefined' && window._env_ ? 'EXISTS' : 'MISSING');
-console.log('  - window.ENV:', typeof window !== 'undefined' && window.ENV ? 'EXISTS' : 'MISSING');
-console.log('  - Final GOOGLE_AI_KEY:', GOOGLE_AI_KEY ? 'LOADED' : 'NOT LOADED');
-console.log('  - Key Length:', GOOGLE_AI_KEY?.length || 0);
-console.log('  - Starts with AIza:', GOOGLE_AI_KEY?.startsWith('AIza') ? 'YES' : 'NO');
-console.log('  - First 10 chars:', GOOGLE_AI_KEY?.substring(0, 10) || 'N/A');
-console.log('  - All env keys with GOOGLE:', Object.keys(process.env).filter(k => k.includes('GOOGLE')));
-console.log('  - All env keys with EXPO:', Object.keys(process.env).filter(k => k.includes('EXPO')));
-console.log('================================');
+// Log only non-sensitive API key status to avoid leaking secrets
+logGoogleApiStatus(!!GOOGLE_AI_KEY);
 
 if (!GOOGLE_AI_KEY || GOOGLE_AI_KEY === 'your_google_ai_key_here') {
   console.error('❌ Google AI API key is missing or invalid!');
@@ -95,7 +90,7 @@ async function callGoogleAI(prompt, imageBase64, model) {
     }],
     generationConfig: {
       temperature: 0.7,
-      maxOutputTokens: 8000,
+      maxOutputTokens: GOOGLE_AI_MAX_OUTPUT_TOKENS,
     }
   };
 
@@ -108,13 +103,13 @@ async function callGoogleAI(prompt, imageBase64, model) {
   try {
     const controller = new AbortController();
     // 45 second timeout - balanced for mobile and web reliability
-    const timeoutId = setTimeout(() => controller.abort(), 45000);
+    const timeoutId = setTimeout(() => controller.abort(), GOOGLE_AI_TIMEOUT_MS);
 
     console.log('🚀 Sending request to Gemini API...');
     const startTime = Date.now();
 
     response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
+      `${GOOGLE_AI_API_URL}/${model}:generateContent`,
       {
         method: 'POST',
         headers: {
@@ -299,7 +294,7 @@ Return ONLY valid JSON (no markdown):
 
 Make it feel personal and specific to THIS person's skin, not a template. Reference the areas you analyzed.`;
 
-    const responseText = await callGoogleAI(prompt, imageBase64, SKIN_ANALYSIS_MODEL);
+    const responseText = await callGoogleAI(prompt, imageBase64, GOOGLE_AI_SKIN_MODEL);
     const cleanedText = stripMarkdown(responseText);
     return JSON.parse(cleanedText);
   } catch (error) {
@@ -334,7 +329,7 @@ Make it feel personal and specific to THIS person's skin, not a template. Refere
 export async function analyzeSkin(imageBase64) {
   try {
     console.log('🔍 API: Starting skin analysis');
-    console.log('📊 Using model:', SKIN_ANALYSIS_MODEL);
+    console.log('📊 Using model:', GOOGLE_AI_SKIN_MODEL);
     console.log('🔑 Google AI endpoint:', GOOGLE_AI_API_URL);
     console.log('API Key available:', GOOGLE_AI_KEY ? 'YES' : 'NO');
     console.log('API Key length:', GOOGLE_AI_KEY?.length || 0);
@@ -451,7 +446,7 @@ CRITICAL RULES:
 - Example action plan step titles: "Seek Professional Consultation", "Gentle Skincare Routine", "Targeted Treatment", "Sun Protection", "Hands Off / Don't Pick", "Hydration Focus", "Barrier Repair"
 - Keep the same calm, non-diagnostic Google AI Studio tone for action plan content`;
 
-    const responseText = await callGoogleAI(prompt, imageBase64, SKIN_ANALYSIS_MODEL);
+    const responseText = await callGoogleAI(prompt, imageBase64, GOOGLE_AI_SKIN_MODEL);
     const cleanedText = stripMarkdown(responseText);
     const data = JSON.parse(cleanedText);
 
@@ -599,7 +594,7 @@ CRITICAL RULES:
 export async function analyzeProducts(imageBase64) {
   try {
     console.log('🔍 Starting product analysis...');
-    console.log('📊 Using model:', PRODUCT_ANALYSIS_MODEL);
+    console.log('📊 Using model:', GOOGLE_AI_PRODUCT_MODEL);
     console.log('🔑 Google AI endpoint:', GOOGLE_AI_API_URL);
     console.log('API Key available:', GOOGLE_AI_KEY ? 'YES' : 'NO');
     console.log('📸 Image data length:', imageBase64?.length || 0);
@@ -668,7 +663,7 @@ export async function analyzeProducts(imageBase64) {
 
 Identify all visible products. Keep descriptions brief - one sentence each. Return complete valid JSON only.`;
 
-    const responseText = await callGoogleAI(prompt, imageBase64, PRODUCT_ANALYSIS_MODEL);
+    const responseText = await callGoogleAI(prompt, imageBase64, GOOGLE_AI_PRODUCT_MODEL);
 
     if (!responseText) {
       throw new Error("API returned empty response");

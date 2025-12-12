@@ -5,6 +5,14 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co';
 const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || 'placeholder-key';
 
+if (!supabaseUrl || supabaseUrl === 'https://placeholder.supabase.co') {
+    throw new Error('Supabase URL is not configured. Set EXPO_PUBLIC_SUPABASE_URL in your environment.');
+}
+
+if (!supabaseAnonKey || supabaseAnonKey === 'placeholder-key') {
+    throw new Error('Supabase anon key is not configured. Set EXPO_PUBLIC_SUPABASE_ANON_KEY in your environment.');
+}
+
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     auth: {
         storage: AsyncStorage,
